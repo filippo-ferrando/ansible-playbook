@@ -1,0 +1,33 @@
+---
+- name: Update debian repositories
+  hosts: debian
+  become: yes
+  become_user: root
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        forse_apt_get: yes
+        cache_valid_time: 3600
+    - name: Upgrade all packages
+      apt:
+        upgrade=dist
+        forse_apt_get: yes
+        autoremove: yes
+        autoclean: yes
+        clean: yes
+    - name: Check if reboot needed
+      register: reboot_required_file
+      stat:
+        path: /var/run/reboot-required
+        get_md5: no
+    - name: Reboot if needed
+      reboot:
+        msg: "Rebooting the server due to pending updates."
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+      when: reboot_required_file.stat.exists
+
+``` 
