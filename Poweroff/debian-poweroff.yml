@@ -1,0 +1,12 @@
+---
+- name: Poweroff debian
+  hosts: debian
+  become: yes
+  become_user: root
+  tasks:
+    - name: Poweroff debian
+      shell: shutdown -h now "Normal poweroff"
+      async: 0
+      poll: 0
+      ignore_errors: yes
+```
