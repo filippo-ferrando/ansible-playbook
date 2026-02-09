@@ -1,0 +1,54 @@
+---
+- name: Install latest Syncthing (linux-amd64)
+  hosts: all
+  become: true
+
+  vars:
+    bin_dir: /usr/local/bin
+
+  tasks:
+    - name: Query latest Syncthing release from GitHub
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/syncthing/syncthing/releases/latest
+        return_content: true
+      register: syncthing_release
+
+    - name: Select linux-amd64 tar.gz asset
+      ansible.builtin.set_fact:
+        syncthing_url: >-
+          {{
+            syncthing_release.json.assets
+            | selectattr('browser_download_url', 'search', 'linux-amd64.*\\.tar\\.gz$')
+            | map(attribute='browser_download_url')
+            | first
+          }}
+
+    - name: Fail if no suitable Syncthing archive was found
+      ansible.builtin.fail:
+        msg: "No linux-amd64 tar.gz release asset found"
+      when: syncthing_url is not defined or syncthing_url == ""
+
+    - name: Set archive filename
+      ansible.builtin.set_fact:
+        syncthing_archive: "/tmp/{{ syncthing_url | basename }}"
+
+    - name: Download Syncthing archive
+      ansible.builtin.get_url:
+        url: "{{ syncthing_url }}"
+        dest: "{{ syncthing_archive }}"
+        mode: '0644'
+
+    - name: Extract Syncthing archive
+      ansible.builtin.unarchive:
+        src: "{{ syncthing_archive }}"
+        dest: "/tmp"
+        remote_src: true
+        creates: "/tmp/{{ syncthing_archive | basename | regex_replace('\\.tar\\.gz$', '') }}"
+
+    - name: Install Syncthing binary
+      ansible.builtin.copy:
+        src: "/tmp/{{ syncthing_archive | basename | regex_replace('\\.tar\\.gz$', '') }}/syncthing"
+        dest: "{{ bin_dir }}/syncthing"
+        mode: '0755'
+        remote_src: true
+
